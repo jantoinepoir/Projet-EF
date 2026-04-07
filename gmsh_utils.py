@@ -32,6 +32,121 @@ def build_1d_mesh(L=1.0, cl1=0.02, cl2=0.10, order=1):
 
     return line, elemType, nodeTags, nodeCoords, elemTags, elemNodeTags
 
+def build_annular_mesh(Rv=0.01, Rt=0.08, cl_v=0.002, cl_t=0.008, order=1):
+    """
+    Build and mesh a 2D annular domain (Krogh cylinder cross-section):
+        Omega = {(x,y) : Rv^2 <= x^2+y^2 <= Rt^2}
+ 
+    The inner boundary Gamma_v (vessel wall) and outer boundary Gamma_t (tissue
+    limit) are identified automatically by comparing bounding box radii.
+ 
+    Parameters
+    ----------
+    Rv    : float  Inner (vessel) radius
+    Rt    : float  Outer (tissue) radius
+    cl_v  : float  Characteristic mesh length at the vessel wall (fine)
+    cl_t  : float  Characteristic mesh length at the tissue boundary (coarser)
+    order : int    Polynomial order of elements (1 = P1 triangles)
+ 
+    Returns
+    -------
+    elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, bnds_tags
+      - bnds      : list of (name, dim) pairs
+      - bnds_tags : list of node-tag arrays, one per boundary
+    """
+    assert Rv < Rt, "Rv must be strictly smaller than Rt"
+ 
+    # --- Use OCC kernel for boolean operations
+    disk_outer = gmsh.model.occ.addDisk(0.0, 0.0, 0.0, Rt, Rt)
+    disk_inner = gmsh.model.occ.addDisk(0.0, 0.0, 0.0, Rv, Rv)
+ 
+    # Annulus = outer disk minus inner disk
+    out_dimtags, _ = gmsh.model.occ.cut(
+        [(2, disk_outer)],   # tool
+        [(2, disk_inner)],   # cutters
+        removeObject=True,
+        removeTool=True
+    )
+    gmsh.model.occ.synchronize()
+ 
+    surf_tag = out_dimtags[0][1]
+ 
+    # --- Mesh size fields: fine near vessel wall, coarser at tissue edge
+    # We use a Distance field from the inner circle boundary to smoothly vary cl.
+    curves = gmsh.model.getBoundary([(2, surf_tag)], oriented=False)
+ 
+    # Identify inner vs outer curve by bounding-box radius
+    inner_tag = None
+    outer_tag = None
+    for dim_tag in curves:
+        ctag = abs(dim_tag[1])
+        xmin, ymin, _, xmax, ymax, _ = gmsh.model.getBoundingBox(1, ctag)
+        r_max = max(abs(xmax), abs(ymax), abs(xmin), abs(ymin))
+        if r_max < 0.5 * (Rv + Rt):      # small radius  => vessel wall
+            inner_tag = ctag
+        else:                              # large radius  => tissue boundary
+            outer_tag = ctag
+ 
+    if inner_tag is None or outer_tag is None:
+        raise RuntimeError(
+            "Could not identify inner/outer boundaries. "
+            f"Curves found: {curves}"
+        )
+ 
+    # --- Mesh size using gmsh Fields
+    # Field 1: Distance from inner circle
+    f_dist = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(f_dist, "CurvesList", [inner_tag])
+    gmsh.model.mesh.field.setNumber(f_dist, "Sampling", 200)
+ 
+    # Field 2: Threshold – cl_v near the wall, cl_t far away
+    f_thresh = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(f_thresh, "InField",   f_dist)
+    gmsh.model.mesh.field.setNumber(f_thresh, "SizeMin",   cl_v)
+    gmsh.model.mesh.field.setNumber(f_thresh, "SizeMax",   cl_t)
+    gmsh.model.mesh.field.setNumber(f_thresh, "DistMin",   0.2 * (Rt - Rv))
+    gmsh.model.mesh.field.setNumber(f_thresh, "DistMax",   0.8 * (Rt - Rv))
+ 
+    gmsh.model.mesh.field.setAsBackgroundMesh(f_thresh)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+ 
+    # --- Physical groups
+    gmsh.model.addPhysicalGroup(1, [inner_tag], tag=1)
+    gmsh.model.setPhysicalName(1, 1, "VesselWall")       # Gamma_v  (Robin)
+ 
+    gmsh.model.addPhysicalGroup(1, [outer_tag], tag=2)
+    gmsh.model.setPhysicalName(1, 2, "TissueBoundary")   # Gamma_t  (Neumann homog.)
+ 
+    gmsh.model.addPhysicalGroup(2, [surf_tag], tag=1)
+    gmsh.model.setPhysicalName(2, 1, "Tissue")
+ 
+    # --- Generate mesh
+    gmsh.model.mesh.generate(2)
+    gmsh.model.mesh.setOrder(order)
+ 
+    # --- Collect data
+    elemType   = gmsh.model.mesh.getElementType("triangle", order)
+    nodeTags, nodeCoords, _ = gmsh.model.mesh.getNodes()
+    elemTags,  elemNodeTags  = gmsh.model.mesh.getElementsByType(elemType)
+ 
+    bnds = [("VesselWall", 1), ("TissueBoundary", 1)]
+    bnds_tags = []
+    for name, dim in bnds:
+        pg_tag = -1
+        for t in gmsh.model.getPhysicalGroups(dim):
+            if gmsh.model.getPhysicalName(dim, t[1]) == name:
+                pg_tag = t[1]
+                break
+        if pg_tag == -1:
+            raise ValueError(f"Physical group '{name}' not found.")
+        bnds_tags.append(
+            gmsh.model.mesh.getNodesForPhysicalGroup(dim, pg_tag)[0]
+        )
+ 
+    return elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, bnds_tags
+
 
 def prepare_quadrature_and_basis(elemType, order):
     """

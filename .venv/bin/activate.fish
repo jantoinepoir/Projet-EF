@@ -33,7 +33,11 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
+<<<<<<< HEAD
 set -gx VIRTUAL_ENV /root/Projet-EF/.venv
+=======
+set -gx VIRTUAL_ENV /home/edoyle/Projet-EF/.venv
+>>>>>>> f1bf8a01 (chgt eloise)
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

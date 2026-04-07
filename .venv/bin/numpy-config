@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #!/root/Projet-EF/.venv/bin/python3
+=======
+#!/home/edoyle/Projet-EF/.venv/bin/python3
+>>>>>>> f1bf8a01 (chgt eloise)
 # -*- coding: utf-8 -*-
 import re
 import sys
