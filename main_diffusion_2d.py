@@ -1,5 +1,6 @@
 # main_diffusion_1d.py
 #test pour voir si je sais push
+#test 2 
 import argparse
 import numpy as np
 
