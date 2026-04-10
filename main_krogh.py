@@ -45,8 +45,8 @@ def main():
     parser = argparse.ArgumentParser(description="Krogh cylinder – drug diffusion (Gmsh FE)")
 
     # Geometry
-    parser.add_argument("--Rv",  type=float, default=8e-6,  help="Vessel radius [m]")
-    parser.add_argument("--Rt",  type=float, default=50e-6, help="Tissue radius [m]")
+    parser.add_argument("--Rv",  type=float, default=8e-5,  help="Vessel radius [m]")
+    parser.add_argument("--Rt",  type=float, default=50e-5, help="Tissue radius [m]")
     parser.add_argument("--clv", type=float, default=1e-6,  help="Mesh size at vessel wall")
     parser.add_argument("--clt", type=float, default=5e-6,  help="Mesh size at tissue boundary")
 
