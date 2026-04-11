@@ -44,36 +44,40 @@ from plot_utils import setup_interactive_figure, plot_mesh_2d, plot_fe_solution_
 def main():
     parser = argparse.ArgumentParser(description="Krogh cylinder – drug diffusion (Gmsh FE)")
 
-    # Geometry
-    parser.add_argument("--Rv",  type=float, default=8e-6,  help="Vessel radius [m]")
-    parser.add_argument("--Rt",  type=float, default=50e-6, help="Tissue radius [m]")
-    parser.add_argument("--clv", type=float, default=1e-6,  help="Mesh size at vessel wall")
-    parser.add_argument("--clt", type=float, default=5e-6,  help="Mesh size at tissue boundary")
+    # Géométrie
+    parser.add_argument("--Rv",  type=float, default=8e-6,   help="Vessel radius [m]")
+    parser.add_argument("--Rt",  type=float, default=1e-4,   help="Tissue radius [m]")
+    parser.add_argument("--clv", type=float, default=0.5e-6, help="Mesh size at vessel wall")
+    parser.add_argument("--clt", type=float, default=5e-6,   help="Mesh size at tissue boundary")
 
-    # Physics
-    parser.add_argument("-D",    type=float, default=1e-10, help="Diffusion coefficient [m^2/s]")
-    parser.add_argument("-P",    type=float, default=1e-6,  help="Vascular permeability [m/s]")
+    # Physique
+    # Remplacer dans le parser :
+    parser.add_argument("--D",  type=float, default=2.4e-11, help="Diffusion coefficient [m^2/s]")
+    parser.add_argument("--P",  type=float, default=3.0e-8,  help="Vascular permeability [m/s]")
+    parser.add_argument("--kr", type=float, default=2.0e-4,  help="Reaction/uptake rate [s^-1]")
+    parser.add_argument("--order", type=int, default=1, help="Polynomial order (1=P1, 2=P2)")
+    parser.add_argument("--theta", type=float, default=1.0, help="Theta-scheme: 1=Euler implicite, 0.5=Crank-Nicolson")
 
-    # FE
-    parser.add_argument("-order",  type=int,   default=1)
-    parser.add_argument("--theta", type=float, default=1.0,
-                        help="Theta-scheme: 1=implicit Euler, 0.5=Crank-Nicolson")
-    parser.add_argument("--dt",    type=float, default=1.0)   # seconds
-    parser.add_argument("--nsteps",type=int,   default=200)
-    args = parser.parse_args()
+    # Temps  (T = 3600 s avec dt=10 s => 360 pas)
+    parser.add_argument("--dt",     type=float, default=10.0)
+    parser.add_argument("--nsteps", type=int,   default=360)
 
     # ------------------------------------------------------------------
     # Physical parameters
     # ------------------------------------------------------------------
-    D  = args.D   # diffusion coefficient  [m^2/s]
-    P  = args.P   # vascular permeability  [m/s]
+    args = parser.parse_args() 
+    D=   args.D
+    P  = args.P
+    kr = args.kr
     T  = args.dt * args.nsteps   # total simulation time  [s]
 
     # Plasma concentration: step function at t=0 (bolus injection)
     # Feel free to change to a time-varying profile.
+    C_PLASMA = 5.0e-3   # mol/m³  (5 µM après correction unités)
+
     def c_plasma(t):
-        """Uniform plasma concentration (assumed constant or slowly varying)."""
-        return 1.0   # normalised units
+        """Concentration plasmatique constante (pic post-injection maintenu)."""
+        return C_PLASMA
 
     # ------------------------------------------------------------------
     # Mesh
@@ -154,8 +158,8 @@ def main():
     # Mass matrix: M[i,j] = integral N_i * N_j dOmega
     M_lil = assemble_mass(elemTags, elemNodeTags, det, w, N, tag_to_dof)
 
-    # Total stiffness:  K_total = K_vol + K_robin
-    K_total_lil = K_vol_lil + K_robin_lil
+    # K_reaction[i,j] = kr * integral N_i * N_j dOmega = kr * M
+    K_total_lil = K_vol_lil + K_robin_lil + kr * M_lil
 
     # Convert to CSR for efficient linear algebra
     K = K_total_lil.tocsr()
@@ -179,20 +183,21 @@ def main():
     print(f"Starting time integration: {args.nsteps} steps, dt={args.dt} s, T={T:.1f} s")
     print(f"D={D:.2e} m²/s,  P={P:.2e} m/s,  Rv={args.Rv:.2e} m,  Rt={args.Rt:.2e} m")
 
+    fig, ax = plt.subplots()
+    plt.ion()
+    c_max_display = C_PLASMA * 1e3
+
     for step in range(args.nsteps):
-        t    = step * args.dt
+        t     = step * args.dt
         t_np1 = t + args.dt
 
-        # Robin RHS at time n:   F_robin_n[i] = integral P * c_plasma(t) * N_i ds
-        F_robin_n   = assemble_robin_rhs(
+        F_robin_n = assemble_robin_rhs(
             elemTagsV, elemNodeTagsV,
             detV, coordsV, wV, NV,
             P=P,
-            c_plasma_fun=lambda x, _t=t:    c_plasma(_t),
+            c_plasma_fun=lambda x, _t=t: c_plasma(_t),
             tag_to_dof=tag_to_dof, nn=nn
         )
-
-        # Robin RHS at time n+1
         F_robin_np1 = assemble_robin_rhs(
             elemTagsV, elemNodeTagsV,
             detV, coordsV, wV, NV,
@@ -201,13 +206,9 @@ def main():
             tag_to_dof=tag_to_dof, nn=nn
         )
 
-        # Total RHS = volume source (zero) + Robin flux
         Fn   = F0 + F_robin_n
         Fnp1 = F0 + F_robin_np1
 
-        # One theta-scheme step
-        # (M + theta*dt*K) U^{n+1} = (M-(1-theta)*dt*K) U^n + dt*(theta*F^{n+1}+(1-theta)*F^n)
-        # No Dirichlet => empty dir_dofs
         U = theta_step(
             M, K,
             Fn, Fnp1, U,
@@ -217,36 +218,40 @@ def main():
             dir_vals_np1=dir_vals
         )
 
-        # ------ Plot every 5 steps to avoid slowing down ------
         if step % 5 == 0:
-            ax.clear()
+            fig.clf()
+            ax = fig.add_subplot(111)
+
+            U_display = np.clip(U * 1e3, 1e-7, None)  # mol/m³ -> mmol/m³, évite log(0)
+
             contour = plot_fe_solution_2d(
                 elemNodeTags=elemNodeTags,
                 nodeTags=nodeTags,
                 nodeCoords=nodeCoords,
-                U=U,
+                U=U_display,
                 tag_to_dof=tag_to_dof,
                 show_mesh=False,
-                ax=ax
+                ax=ax,
+                vmin=1e-7,
+                vmax=c_max_display,
+                cmap='inferno',
             )
+
+            plt.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")
             ax.set_title(
-                f"Krogh cylinder  —  t = {t_np1:.1f} s  (step {step+1}/{args.nsteps})\n"
-                f"D={D:.1e} m²/s, P={P:.1e} m/s, theta={args.theta}"
+                f"Cylindre de Krogh — Doxorubicine — t = {t_np1:.0f} s\n"
+                f"D={D:.1e} m²/s,  P={P:.1e} m/s,  kr={kr:.1e} s⁻¹"
             )
             ax.set_xlabel("x  [m]")
             ax.set_ylabel("y  [m]")
+            ax.set_xlim([-1.1*args.Rt, 1.1*args.Rt])
+            ax.set_ylim([-1.1*args.Rt, 1.1*args.Rt])
             ax.axis('equal')
-
-            # Add a colourbar on the first step
-            if step == 0:
-                plt.colorbar(contour, ax=ax, label="Drug concentration  [normalised]")
-
             plt.pause(0.01)
 
     print("Done.")
     plt.ioff()
     plt.show()
-
     gmsh_finalize()
 
 

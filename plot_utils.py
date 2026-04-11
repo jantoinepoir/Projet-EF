@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
+from matplotlib.colors import LogNorm
 import gmsh
 
 
@@ -101,7 +102,9 @@ def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, b
     plt.show()
 
 
-def plot_fe_solution_2d(elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof, show_mesh=False, ax=None, label=None):
+def plot_fe_solution_2d(elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof, 
+                        show_mesh=False, ax=None, label=None,
+                        cmap="hot", vmin=None, vmax=None): 
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -132,7 +135,8 @@ def plot_fe_solution_2d(elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof, show_
     triangles = tag_to_dof[conn_reshaped[:, :3].astype(int)]
     # 4. Plotting
     U = np.array(U).flatten()
-    contour = ax.tricontourf(x, y, triangles, U, levels=100, cmap='seismic', vmin=-2.0, vmax=2.0)
+    norm = LogNorm(vmin=max(vmin, 1e-7), vmax=vmax) if vmin is not None and vmax is not None else None
+    contour = ax.tricontourf(x, y, triangles, U, levels=100, cmap=cmap, norm=norm)
     
     if show_mesh:
         ax.triplot(x, y, triangles, color='white', linewidth=0.2, alpha=0.3)
