@@ -105,9 +105,9 @@ def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, b
     plt.show()
 
 
-def plot_fe_solution_2d(elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof, 
+def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof, 
                         show_mesh=False, ax=None, label=None,
-                        cmap="hot", vmin=None, vmax=None): 
+                        cmap="hot", vmin=None, vmax=None):
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -126,12 +126,16 @@ def plot_fe_solution_2d(elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof,
     y = coords_mapped[:, 1]
 
     # 2. Determine nodes per element dynamically
-    total_nodes_in_elems = len(elemNodeTags)
+    #total_nodes_in_elems = len(elemNodeTags)
     # Standard Lagrange triangle node counts: Order 1=3, Order 2=6, Order 3=10, Order 4=15
-    for possible_n in [3, 6, 10, 15, 21]:
-        if total_nodes_in_elems % possible_n == 0:
-            nodes_per_elem = possible_n
-            break
+    #for possible_n in [3, 6, 10, 15, 21]:
+        #if total_nodes_in_elems % possible_n == 0:
+            #nodes_per_elem = possible_n
+            #break
+
+    num_elements = len(elemTags)
+    nodes_per_elem = len(elemNodeTags) // num_elements
+
     # 3. Reshape and extract ONLY the 3 corner nodes for Matplotlib
     conn_reshaped = elemNodeTags.reshape(-1, nodes_per_elem)
     # Map the GMSH tags to our 0...N-1 indices

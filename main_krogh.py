@@ -3,7 +3,7 @@
 Krogh cylinder model — drug diffusion from capillary to tissue.
 
 PDE:
-    dc/dt - D * Delta(c) = 0    in Omega (annular tissue domain)
+    dc/dt - D * Delta(c) + kr * c = 0    in Omega (annular tissue domain)
 
 Boundary conditions:
     Gamma_v (inner, vessel wall):   -D grad(c).n = P * (c_plasma(t) - c)   [Robin]
@@ -66,13 +66,12 @@ def main():
     # Physical parameters
     # ------------------------------------------------------------------
     args = parser.parse_args() 
-    D=   args.D
+    D  = args.D
     P  = args.P
     kr = args.kr
     T  = args.dt * args.nsteps   # total simulation time  [s]
 
-    # Plasma concentration: step function at t=0 (bolus injection)
-    # Feel free to change to a time-varying profile.
+    # Plasma concentration imposed constant at the vessel wall (Robin BC):
     C_PLASMA = 5.0e-3   # mol/m³  (5 µM après correction unités)
 
     def c_plasma(t):
@@ -179,7 +178,6 @@ def main():
     # ------------------------------------------------------------------
     # Time integration (theta-scheme)
     # ------------------------------------------------------------------
-    _, ax = setup_interactive_figure()
     print(f"Starting time integration: {args.nsteps} steps, dt={args.dt} s, T={T:.1f} s")
     print(f"D={D:.2e} m²/s,  P={P:.2e} m/s,  Rv={args.Rv:.2e} m,  Rt={args.Rt:.2e} m")
 
@@ -187,27 +185,23 @@ def main():
     plt.ion()
     c_max_display = C_PLASMA * 1e3
 
+    #ne dépend pas du temps, on peut le calculer une fois pour toutes et le réutiliser à chaque pas de temps
+    F_robin_const = assemble_robin_rhs(
+        elemTagsV, elemNodeTagsV,
+        detV, coordsV, wV, NV,
+        P=P,
+        c_plasma_fun=lambda x: c_plasma(0.0),
+        tag_to_dof=tag_to_dof, nn=nn
+    )
+
+    F_const = F0 + F_robin_const
+
     for step in range(args.nsteps):
         t     = step * args.dt
         t_np1 = t + args.dt
 
-        F_robin_n = assemble_robin_rhs(
-            elemTagsV, elemNodeTagsV,
-            detV, coordsV, wV, NV,
-            P=P,
-            c_plasma_fun=lambda x, _t=t: c_plasma(_t),
-            tag_to_dof=tag_to_dof, nn=nn
-        )
-        F_robin_np1 = assemble_robin_rhs(
-            elemTagsV, elemNodeTagsV,
-            detV, coordsV, wV, NV,
-            P=P,
-            c_plasma_fun=lambda x, _t=t_np1: c_plasma(_t),
-            tag_to_dof=tag_to_dof, nn=nn
-        )
-
-        Fn   = F0 + F_robin_n
-        Fnp1 = F0 + F_robin_np1
+        Fn = F_const
+        Fnp1 = F_const
 
         U = theta_step(
             M, K,
@@ -218,13 +212,13 @@ def main():
             dir_vals_np1=dir_vals
         )
 
-        if step % 5 == 0:
-            fig.clf()
-            ax = fig.add_subplot(111)
+        if step % 10 == 0:
+            ax.clear()
 
             U_display = np.clip(U * 1e3, 1e-7, None)  # mol/m³ -> mmol/m³, évite log(0)
 
             contour = plot_fe_solution_2d(
+                elemTags=elemTags,
                 elemNodeTags=elemNodeTags,
                 nodeTags=nodeTags,
                 nodeCoords=nodeCoords,
@@ -232,12 +226,12 @@ def main():
                 tag_to_dof=tag_to_dof,
                 show_mesh=False,
                 ax=ax,
-                vmin=1e-7,
+                vmin=0.0,
                 vmax=c_max_display,
-                cmap='inferno',
+                cmap='viridis',
             )
 
-            plt.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")
+            #plt.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")
             ax.set_title(
                 f"Cylindre de Krogh — Doxorubicine — t = {t_np1:.0f} s\n"
                 f"D={D:.1e} m²/s,  P={P:.1e} m/s,  kr={kr:.1e} s⁻¹"
