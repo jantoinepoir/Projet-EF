@@ -41,6 +41,34 @@ from dirichlet import theta_step
 from plot_utils import setup_interactive_figure, plot_mesh_2d, plot_fe_solution_2d
 
 
+def radial_profile(dof_coords, U, Rv, Rt, nbins=60):
+    coords = np.asarray(dof_coords, dtype=float)
+    r = np.sqrt(coords[:, 0]**2 + coords[:, 1]**2)
+    mask = (r >= Rv) & (r <= Rt)
+    if np.sum(mask) == 0:
+        return np.array([]), np.array([])
+
+    r = r[mask]
+    U = np.asarray(U, dtype=float)[mask]
+    rho = (r - Rv) / (Rt - Rv)
+
+    bins = np.linspace(0.0, 1.0, nbins + 1)
+    inds = np.digitize(rho, bins) - 1
+
+    profile = np.zeros(nbins, dtype=float)
+    counts = np.zeros(nbins, dtype=int)
+    for i, idx in enumerate(inds):
+        if 0 <= idx < nbins:
+            profile[idx] += U[i]
+            counts[idx] += 1
+
+    nonzero = counts > 0
+    profile[nonzero] /= counts[nonzero]
+    centers = 0.5 * (bins[:-1] + bins[1:])
+
+    return centers[nonzero], profile[nonzero]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Krogh cylinder – drug diffusion (Gmsh FE)")
 
@@ -185,6 +213,21 @@ def main():
     print(f"D={D:.2e} m²/s,  P={P:.2e} m/s,  Rv={args.Rv:.2e} m,  Rt={args.Rt:.2e} m")
     print("Note: with a constant plasma concentration at the vessel wall, the tissue will typically approach a steady-state profile and appear to stop evolving.")
 
+    mass_total = float(M.sum())
+    target_profile_times = [100.0, 500.0, 1000.0, T]
+    snapshot_steps = sorted({
+        min(args.nsteps, max(0, int(round(target_time / args.dt))))
+        for target_time in target_profile_times
+    })
+    snapshot_time_map = {step: step * args.dt for step in snapshot_steps}
+    snapshots = {}
+
+    times = np.zeros(args.nsteps + 1, dtype=float)
+    avg_conc = np.zeros(args.nsteps + 1, dtype=float)
+
+    times[0] = 0.0
+    avg_conc[0] = M.dot(U).sum() / mass_total
+
     fig, ax = plt.subplots()
     plt.ion()
     c_max_display = C_PLASMA * 1e3
@@ -222,6 +265,12 @@ def main():
             dir_vals_np1=dir_vals
         )
 
+        times[step + 1] = t_np1
+        avg_conc[step + 1] = M.dot(U).sum() / mass_total
+
+        if step + 1 in snapshot_steps:
+            snapshots[snapshot_time_map[step + 1]] = U.copy()
+
         if step % 10 == 0:
             ax.clear()
 
@@ -244,7 +293,6 @@ def main():
             if cbar is None:
                 cbar = fig.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")
 
-            #plt.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")
             ax.set_title(
                 f"Cylindre de Krogh — Doxorubicine — t = {t_np1:.0f} s\n"
                 f"D={D:.1e} m²/s,  P={P:.1e} m/s,  kr={kr:.1e} s⁻¹"
@@ -256,8 +304,28 @@ def main():
             ax.axis('equal')
             plt.pause(0.01)
 
-    print("Done.")
     plt.ioff()
+    plt.show()
+
+    fig1, ax1 = plt.subplots()
+    ax1.plot(times, avg_conc * 1e3, '-o')
+    ax1.set_xlabel('Temps [s]')
+    ax1.set_ylabel('Concentration moyenne [mmol/m³]')
+    ax1.set_title('Concentration moyenne du tissu en fonction du temps')
+    ax1.grid(True)
+
+    fig2, ax2 = plt.subplots()
+    for time in sorted(snapshots):
+        rho, profile = radial_profile(dof_coords, snapshots[time], args.Rv, args.Rt)
+        if rho.size > 0:
+            ax2.plot(rho, profile / C_PLASMA, label=f't={time:.0f}s')
+    ax2.set_xlabel('Rayon normalisé ρ = (r-Rv)/(Rt-Rv)')
+    ax2.set_ylabel('c/c_plasma')
+    ax2.set_title('Profils radiaux de concentration pour plusieurs temps')
+    ax2.legend()
+    ax2.grid(True)
+
+    print("Done.")
     plt.show()
     gmsh_finalize()
 
