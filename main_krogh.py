@@ -157,8 +157,11 @@ def main():
     # Mass matrix: M[i,j] = integral N_i * N_j dOmega
     M_lil = assemble_mass(elemTags, elemNodeTags, det, w, N, tag_to_dof)
 
-    # K_reaction[i,j] = kr * integral N_i * N_j dOmega = kr * M
-    K_total_lil = K_vol_lil + K_robin_lil + kr * M_lil
+    # Reaction term: kr * c contributes kr * M on the left-hand side.
+    K_reac_lil = kr * M_lil
+
+    # Total stiffness matrix for the spatial operator.
+    K_total_lil = K_vol_lil + K_robin_lil + K_reac_lil
 
     # Convert to CSR for efficient linear algebra
     K = K_total_lil.tocsr()
@@ -180,28 +183,35 @@ def main():
     # ------------------------------------------------------------------
     print(f"Starting time integration: {args.nsteps} steps, dt={args.dt} s, T={T:.1f} s")
     print(f"D={D:.2e} m²/s,  P={P:.2e} m/s,  Rv={args.Rv:.2e} m,  Rt={args.Rt:.2e} m")
+    print("Note: with a constant plasma concentration at the vessel wall, the tissue will typically approach a steady-state profile and appear to stop evolving.")
 
     fig, ax = plt.subplots()
     plt.ion()
     c_max_display = C_PLASMA * 1e3
 
-    #ne dépend pas du temps, on peut le calculer une fois pour toutes et le réutiliser à chaque pas de temps
-    F_robin_const = assemble_robin_rhs(
-        elemTagsV, elemNodeTagsV,
-        detV, coordsV, wV, NV,
-        P=P,
-        c_plasma_fun=lambda x: c_plasma(0.0),
-        tag_to_dof=tag_to_dof, nn=nn
-    )
-
-    F_const = F0 + F_robin_const
+    cbar = None
 
     for step in range(args.nsteps):
         t     = step * args.dt
         t_np1 = t + args.dt
 
-        Fn = F_const
-        Fnp1 = F_const
+        F_robin_n   = assemble_robin_rhs(
+            elemTagsV, elemNodeTagsV,
+            detV, coordsV, wV, NV,
+            P=P,
+            c_plasma_fun=lambda x: c_plasma(t),
+            tag_to_dof=tag_to_dof, nn=nn
+        )
+        F_robin_np1 = assemble_robin_rhs(
+            elemTagsV, elemNodeTagsV,
+            detV, coordsV, wV, NV,
+            P=P,
+            c_plasma_fun=lambda x: c_plasma(t_np1),
+            tag_to_dof=tag_to_dof, nn=nn
+        )
+
+        Fn   = F0 + F_robin_n
+        Fnp1 = F0 + F_robin_np1
 
         U = theta_step(
             M, K,
@@ -230,6 +240,9 @@ def main():
                 vmax=c_max_display,
                 cmap='viridis',
             )
+
+            if cbar is None:
+                cbar = fig.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")
 
             #plt.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")
             ax.set_title(
