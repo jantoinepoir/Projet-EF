@@ -1,4 +1,7 @@
 # gmsh_utils.py
+
+#géométrie / maillage /quadrature
+
 import numpy as np
 import gmsh
 
@@ -32,6 +35,8 @@ def build_1d_mesh(L=1.0, cl1=0.02, cl2=0.10, order=1):
 
     return line, elemType, nodeTags, nodeCoords, elemTags, elemNodeTags
 
+
+#projet
 def build_annular_mesh(Rv=0.01, Rt=0.08, cl_v=0.002, cl_t=0.008, order=1):
     """
     Build and mesh a 2D annular domain (Krogh cylinder cross-section):

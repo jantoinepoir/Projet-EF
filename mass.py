@@ -1,4 +1,7 @@
 # mass.py
+
+#assemble la matrice de masse M_ij = sum_e ∫_e N_i N_j dx
+
 import numpy as np
 from scipy.sparse import lil_matrix
 

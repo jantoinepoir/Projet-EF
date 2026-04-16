@@ -1,4 +1,8 @@
 # dirichlet.py
+
+#réduction pou rimposer les conditions de Dirichlet fortes dans un système linéaire K u = F, en éliminant les dofs de Dirichlet et en modifiant le second membre.
+# On peut aussi faire un pas de temps theta-scheme 
+
 import numpy as np
 from scipy.sparse.linalg import spsolve
 from scipy.linalg import det

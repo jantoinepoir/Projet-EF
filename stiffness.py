@@ -1,4 +1,7 @@
 # stiffness.py
+
+#assemble la matrice de rigidité K_ij = sum_e ∫_e kappa grad(N_i).grad(N_j) dx, et le second membre F_i = sum_e ∫_e f N_i dx, pour l'équation de diffusion -d/dx (kappa(x) du/dx) = f(x)
+
 import numpy as np
 from scipy.sparse import lil_matrix
 
@@ -88,6 +91,7 @@ def assemble_rhs_neumann(F, elemTags, conn, jac, det, xphys, w, N, gN, g_neu_fun
 
     return F
 
+#projet
 def assemble_robin_matrix(elemTags, conn, det, xphys, w, N, P, tag_to_dof, nn):
     """
     Assemble the *constant* stiffness contribution from the Robin BC:

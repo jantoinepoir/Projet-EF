@@ -1,4 +1,7 @@
 # plot_utils.py
+
+#Affichage 1D et 2D des solutions FE
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
