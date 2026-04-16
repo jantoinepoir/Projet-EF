@@ -302,7 +302,7 @@ def main():
             ax.set_xlim([-1.1*args.Rt, 1.1*args.Rt])
             ax.set_ylim([-1.1*args.Rt, 1.1*args.Rt])
             ax.axis('equal')
-            plt.pause(0.01)
+            plt.pause(0.001)
 
     plt.ioff()
     plt.show()
