@@ -270,3 +270,84 @@ def open_2d_mesh(msh_filename, order=1):
         bnds_tags.append(gmsh.model.mesh.getNodesForPhysicalGroup(dim, tag)[0])
 
     return elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, bnds_tags
+
+
+def build_multilayer_rect_mesh(L=0.1, H=0.05, layer_ratios=[0.13, 0.53, 0.34], cl=0.002, order=1):
+    """
+    Crée un maillage rectangulaire 2D composé de 3 couches de tissus.
+    """
+    # Si on sait que L=150 μm
+    # Layer 1 (VesselWall/Proche) : ~0 à 20 μm (13% de L) 
+    # Layer 2 (Tissu viable)      : ~20 à 100 μm (53% de L)
+    # Layer 3 (Hypoxique/Nécrosé) : ~100 à 150 μm (34% de L)
+
+    # 1. Calcul des positions x des interfaces
+    x_bounds = np.cumsum([0] + layer_ratios) * L
+    
+    surf_tags = []
+    # 2. Création des 3 rectangles initiaux
+    for i in range(3):
+        width = x_bounds[i+1] - x_bounds[i]
+        tag = gmsh.model.occ.addRectangle(x_bounds[i], 0, 0, width, H)
+        surf_tags.append(tag)
+
+    # 3. La "soudure" (Fragment)
+    # On fragmente pour que les interfaces soient partagées.
+    # 'out' contiendra la liste des nouvelles surfaces créées.
+    out, out_map = gmsh.model.occ.fragment([(2, s) for s in surf_tags], [])
+    
+    gmsh.model.occ.synchronize()
+
+    # 4. Identification des Groupes Physiques (Surfaces)
+    # 'out' est une liste de (dim, tag). On récupère uniquement les surfaces (dim=2).
+    new_surfaces = [entity[1] for entity in out if entity[0] == 2]
+    
+    # On les trie par leur position en X pour être sûr que Layer1 est à gauche
+    new_surfaces.sort(key=lambda s: gmsh.model.occ.getCenterOfMass(2, s)[0])
+
+    for i, s_tag in enumerate(new_surfaces):
+        pg_tag = i + 1
+        gmsh.model.addPhysicalGroup(2, [s_tag], tag=pg_tag)
+        gmsh.model.setPhysicalName(2, pg_tag, f"Layer{i+1}")
+
+    # 5. Les Bords (Frontières)
+    curves = gmsh.model.getEntities(1)
+    vessel_curves = []
+    outer_curves = []
+
+    for dim, c_tag in curves:
+        mass = gmsh.model.occ.getCenterOfMass(dim, c_tag)
+        # On utilise une petite tolérance (1e-6) au lieu de np.isclose pour plus de sûreté
+        if abs(mass[0] - 0) < 1e-6: # Bord gauche
+            vessel_curves.append(c_tag)
+        elif abs(mass[0] - L) < 1e-6: # Bord droit
+            outer_curves.append(c_tag)
+
+    gmsh.model.addPhysicalGroup(1, vessel_curves, tag=10)
+    gmsh.model.setPhysicalName(1, 10, "VesselWall")
+
+    gmsh.model.addPhysicalGroup(1, outer_curves, tag=11)
+    gmsh.model.setPhysicalName(1, 11, "OuterBoundary")
+
+    # 6. Maillage
+    gmsh.model.mesh.setSize(gmsh.model.getEntities(0), cl)
+    gmsh.model.mesh.generate(2)
+    gmsh.model.mesh.setOrder(order)
+
+    # --- Extraction des données pour le solveur ---
+    elemType = gmsh.model.mesh.getElementType("triangle", order)
+    nodeTags, nodeCoords, _ = gmsh.model.mesh.getNodes()
+    elemTags, elemNodeTags = gmsh.model.mesh.getElementsByType(elemType)
+
+    bnds = [("VesselWall", 1), ("OuterBoundary", 1)]
+    bnds_tags = []
+    for name, dim in bnds:
+        tag_pg = -1
+        for t in gmsh.model.getPhysicalGroups(dim):
+            if gmsh.model.getPhysicalName(dim, t[1]) == name:
+                tag_pg = t[1]
+                break
+        if tag_pg != -1:
+            bnds_tags.append(gmsh.model.mesh.getNodesForPhysicalGroup(dim, tag_pg)[0])
+
+    return elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, bnds_tags

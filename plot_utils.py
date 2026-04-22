@@ -63,7 +63,7 @@ def setup_interactive_figure(xlim=None, ylim=None):
         ax.set_ylim(*ylim)
     return fig, ax
 
-def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, bnds_tags, tag_to_index=None):
+def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, bnds_tags, tag_to_index=None,ax=None):
 
     coords = nodeCoords.reshape(-1, 3)
     x = coords[:, 0]
@@ -87,7 +87,8 @@ def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags, bnds, b
     # ---------------------------------------
 
     mesh_triang = tri.Triangulation(x, y, tri_indices)
-    fig, ax = plt.subplots(figsize=(10, 5))
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 5))
     
     # Plot the skeleton
     ax.triplot(mesh_triang, color='black', lw=0.5, alpha=0.4)
@@ -115,8 +116,13 @@ def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_
     # 1. Map coordinates to our compact DoF indices
     num_dofs = len(U)
     coords_mapped = np.zeros((num_dofs, 2))
-    all_coords = nodeCoords.reshape(-1, 3)
     
+    if nodeCoords.size != len(nodeTags) * 3:
+        # Si nodeCoords est erroné, on va chercher les vraies coordonnées chez Gmsh
+        _, coords_to_use, _ = gmsh.model.mesh.getNodes()
+        all_coords = coords_to_use.reshape(-1, 3)
+    else:
+        all_coords = nodeCoords.reshape(-1, 3)
     for i, tag in enumerate(nodeTags):
         dof_idx = tag_to_dof[int(tag)]
         if dof_idx != -1:
@@ -142,7 +148,7 @@ def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_
     triangles = tag_to_dof[conn_reshaped[:, :3].astype(int)]
     # 4. Plotting
     U = np.array(U).flatten()
-    norm = LogNorm(vmin=max(vmin, 1e-7), vmax=vmax) if vmin is not None and vmax is not None else None
+    norm = None
     contour = ax.tricontourf(x, y, triangles, U, levels=100, cmap=cmap, norm=norm)
     
     if show_mesh:
