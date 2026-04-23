@@ -48,6 +48,32 @@ def linear_profile(dof_coords, U, L, nbins=60):
 
     return centers[nonzero], profile[nonzero]
 
+# fonction pour calculer et afficher les métriques de diffusion pour chaque couche du tissu, en utilisant les propriétés de diffusion et de capture définies dans layer_props. Cela nous permettra de mieux comprendre comment la doxorubicine se propage à travers les différentes couches du tissu.
+def print_diffusion_metrics(layer_props, L, ratios):
+    print("\n" + "="*50)
+    print("ANALYSE DES PARAMÈTRES DE DIFFUSION")
+    print("="*50)
+    print(f"{'Couche':<15} | {'Vitesse (μm/s)':<15} | {'Pénétration (mm)':<15}")
+    print("-"*50)
+    
+    for i, (name, props) in enumerate(layer_props.items()):
+        d = ratios[i] * L  # Épaisseur en mètres
+        D = props["D"]
+        kr = props["kr"]
+        
+        # Calculs
+        # Temps caractéristique : t = d² / (2*D)
+        # Vitesse moyenne : v = d / t = 2*D / d
+        v_moy = (2 * D) / d if d > 0 else 0
+        # Longueur de pénétration : lambda = sqrt(D / kr)
+        lambd = np.sqrt(D / kr) if kr > 0 else float('inf')
+        
+        # Conversion pour l'affichage (m -> μm et m -> mm)
+        print(f"{name:<15} | {v_moy * 1e6:<15.2f} | {lambd * 1e3:<15.2f}")
+    
+    print("="*50 + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--L", type=float, default=0.00015)
@@ -67,6 +93,7 @@ def main():
     #conditions aux limites (condition de Robin au niveau de la paroi du vaisseau):
     P = 2.78e-6 #perméabilité pour la doxorubicine libre
     C_PLASMA = 5.0e-3 
+
 
     gmsh_init("skin_diffusion")
     
@@ -180,7 +207,6 @@ def main():
                        dirichlet_dofs=np.array([], dtype=int),
                        dir_vals_np1=np.array([], dtype=float))
 
-        print(f"Étape {step} | Max U : {np.max(U):.4e}")
 
         # 2.)) calcul de la concentration moyenne à chaque étape:
         times[step + 1] = (step + 1) * args.dt
@@ -229,6 +255,10 @@ def main():
     plt.legend()
     plt.grid(True)
     plt.show()
+
+    layer_ratios = [0.13, 0.53, 0.34]
+    print_diffusion_metrics(layer_props, args.L, layer_ratios)
+
 
 if __name__ == "__main__":
     main()
