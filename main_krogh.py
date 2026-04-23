@@ -22,6 +22,7 @@ Usage examples:
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter 
 
 from gmsh_utils import (
     getPhysical,gmsh_init, gmsh_finalize,
@@ -80,7 +81,7 @@ def main():
 
     # Physique
     # Remplacer dans le parser :
-    parser.add_argument("--D",  type=float, default=2.4e-11, help="Diffusion coefficient [m^2/s]")
+    parser.add_argument("--D",  type=float, default=3.6e-10, help="Diffusion coefficient [m^2/s]")
     parser.add_argument("--P",  type=float, default=3.0e-8,  help="Vascular permeability [m/s]")
     parser.add_argument("--kr", type=float, default=2.0e-4,  help="Reaction/uptake rate [s^-1]")
     parser.add_argument("--order", type=int, default=1, help="Polynomial order (1=P1, 2=P2)")
@@ -302,10 +303,18 @@ def main():
             ax.set_xlim([-1.1*args.Rt, 1.1*args.Rt])
             ax.set_ylim([-1.1*args.Rt, 1.1*args.Rt])
             ax.axis('equal')
-            plt.pause(0.001)
+            for axis in [ax.xaxis, ax.yaxis]:
+                fmt = ScalarFormatter(useMathText=True)
+                fmt.set_powerlimits((0, 0))   # force la notation 10^n pour toutes les valeurs
+                axis.set_major_formatter(fmt)
 
-    plt.ioff()
-    plt.show()
+            # Ticks explicites pour x et y
+            ticks = [-1e-4, -5e-5, 0, 5e-5, 1e-4]
+            ax.set_xticks(ticks)
+            ax.set_yticks(ticks)
+            plt.pause(0.001)
+            plt.ioff()
+            plt.show()
 
     fig1, ax1 = plt.subplots()
     ax1.plot(times, avg_conc * 1e3, '-o')
