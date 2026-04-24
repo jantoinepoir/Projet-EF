@@ -17,6 +17,8 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+from matplotlib.colors import LogNorm
+from matplotlib.patches import Circle
 
 from gmsh_utils import (
     getPhysical,
@@ -80,7 +82,7 @@ def main():
     parser.add_argument("--clt", type=float, default=5e-6, help="Mesh size at tissue boundary [m]")
 
     # Physique
-    parser.add_argument("--D", type=float, default=3.6e-10, help="Diffusion coefficient [m^2/s]")
+    parser.add_argument("--D", type=float, default=2.4e-11, help="Diffusion coefficient [m^2/s]")
     parser.add_argument("--P", type=float, default=3.0e-8, help="Vascular permeability [m/s]")
     parser.add_argument("--kr", type=float, default=2.0e-4, help="Reaction/uptake rate [s^-1]")
 
@@ -302,8 +304,8 @@ def main():
 
             ax.clear()
 
-            U_display = U * 1e3  # mol/m³ -> mmol/m³
-
+            U_display = np.clip(U * 1e3, 1e-7, None)  # mol/m³ -> mmol/m³, évite log(0)
+            
             contour = plot_fe_solution_2d(
                 elemTags=elemTags,
                 elemNodeTags=elemNodeTags,
@@ -313,10 +315,21 @@ def main():
                 tag_to_dof=tag_to_dof,
                 show_mesh=False,
                 ax=ax,
-                vmin=U_display.min(),
-                vmax=U_display.max(),
-                cmap="viridis",
+                vmin=0.0,
+                vmax=c_max_display,
+                cmap='viridis',
             )
+
+            # trou central fixe = vaisseau
+            hole = Circle(
+                (0.0, 0.0),
+                Rv,
+                facecolor="white",
+                edgecolor="white",
+                linewidth=1.0,
+                zorder=20,
+            )
+            ax.add_patch(hole)
 
             if cbar is None:
                 cbar = fig.colorbar(contour, ax=ax, label="Concentration [mmol/m³]")

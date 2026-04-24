@@ -74,7 +74,7 @@ def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags,
 
 
 def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof,
-                        show_mesh=False, ax=None, cmap="hot", vmin=None, vmax=None):
+                        show_mesh=False, ax=None, cmap="hot", vmin=None, vmax=None, norm=None):
     """
     Affiche la solution éléments finis 2D.
 
@@ -108,13 +108,8 @@ def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_
 
     U = np.array(U).flatten()
 
-    contour = ax.tricontourf(
-        x, y, triangles, U,
-        levels=100,
-        cmap=cmap,
-        vmin=vmin,
-        vmax=vmax
-    )
+    norm = None
+    contour = ax.tricontourf(x, y, triangles, U, levels=100, cmap=cmap, norm=norm)
 
     if show_mesh:
         ax.triplot(x, y, triangles, color="white", linewidth=0.2, alpha=0.3)
