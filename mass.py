@@ -1,7 +1,6 @@
 # mass.py
-
-#assemble la matrice de masse M_ij = sum_e ∫_e N_i N_j dx
-
+# Assemble la matrice de masse M pour le terme temporel : M_ij = ∫_Ω φ_i φ_j dΩ
+# Dans notre projet, elle vient de ∫_Ω ∂c/∂t v dΩ
 import numpy as np
 from scipy.sparse import lil_matrix
 

@@ -8,11 +8,13 @@ from scipy.sparse import lil_matrix
 
 def assemble_stiffness_and_rhs(elemTags, conn, jac, det, xphys, w, N, gN, kappa_fun, rhs_fun, tag_to_dof):
     """
-    Assemble global stiffness matrix and load vector for:
-        -d/dx (kappa(x) du/dx) = f(x)
+    Assemble la matrice de diffusion :
+        K_diff_ij = ∫_Ω D ∇φ_j · ∇φ_i dΩ
 
-    K_ij = ∫ kappa * grad(N_i)·grad(N_j) dx
-    F_i  = ∫ f * N_i dx
+    et le second membre volumique :
+        F_i = ∫_Ω f φ_i dΩ
+
+    Dans notre projet Krogh, f = 0.
 
     Notes:
     - gmsh gives gN in reference coordinates; we map with inv(J).
@@ -53,8 +55,8 @@ def assemble_stiffness_and_rhs(elemTags, conn, jac, det, xphys, w, N, gN, kappa_
             for a in range(nloc):
                 Ia = int(dof_indices[a])
                 F[Ia] += wg * f_g * N[g, a] * detg
-
                 gradNa = invjacg @ gN[g, a]
+
                 for b in range(nloc):
                     Ib = int(dof_indices[b])
                     gradNb = invjacg @ gN[g, b]
@@ -62,45 +64,13 @@ def assemble_stiffness_and_rhs(elemTags, conn, jac, det, xphys, w, N, gN, kappa_
 
     return K, F
 
-def assemble_rhs_neumann(F, elemTags, conn, jac, det, xphys, w, N, gN, g_neu_fun, tag_to_dof):
-    ne = len(elemTags)
-    ngp = len(w)
-    nloc = int(len(conn) // ne)
-
-    det = np.asarray(det, dtype=np.float64).reshape(ne, ngp)
-    xphys = np.asarray(xphys, dtype=np.float64).reshape(ne, ngp, 3)
-    jac = np.asarray(jac, dtype=np.float64).reshape(ne, ngp, 3, 3)
-    conn = np.asarray(conn, dtype=np.int64).reshape(ne, nloc)
-    N = np.asarray(N, dtype=np.float64).reshape(ngp, nloc)
-    gN = np.asarray(gN, dtype=np.float64).reshape(ngp, nloc, 3)
-
-    for e in range(ne):
-        element_tags = conn[e, :]
-        dof_indices = tag_to_dof[element_tags]
-        for g in range(ngp):
-            xg = xphys[e, g]
-            wg = w[g]
-            detg = det[e, g]
-
-            g_neu_g = float(g_neu_fun(xg))
-
-            for a in range(nloc):
-                Ia = int(dof_indices[a])
-                N_a = N[g, a]
-                F[Ia] += wg * g_neu_g * N_a * detg
-
-    return F
-
-#projet
 def assemble_robin_matrix(elemTags, conn, det, xphys, w, N, P, tag_to_dof, nn):
     """
-    Assemble the *constant* stiffness contribution from the Robin BC:
- 
-        -D grad(c).n = P (c_plasma - c)   on Gamma_v
- 
-    The term  P * c  on the left-hand side adds to the global stiffness:
- 
-        K_robin[i,j] = integral_Gamma_v  P * N_i * N_j  ds
+    Assemble la matrice Robin :
+        R_ij = ∫_{Γ_v} P φ_j φ_i dΓ
+
+    Elle vient du terme :
+        ∫_{Γ_v} P c v dΓ
  
     This matrix does NOT depend on c_plasma, so it is assembled once and
     added to the diffusion stiffness K.
@@ -119,7 +89,7 @@ def assemble_robin_matrix(elemTags, conn, det, xphys, w, N, P, tag_to_dof, nn):
  
     Returns
     -------
-    K_robin : lil_matrix (nn x nn)
+    R : lil_matrix (nn x nn)
     """
     ne  = len(elemTags)
     ngp = len(w)
@@ -130,33 +100,33 @@ def assemble_robin_matrix(elemTags, conn, det, xphys, w, N, P, tag_to_dof, nn):
     conn  = np.asarray(conn,  dtype=np.int64  ).reshape(ne, nloc)
     N     = np.asarray(N,     dtype=np.float64).reshape(ngp, nloc)
  
-    K_robin = lil_matrix((nn, nn), dtype=np.float64)
+    R = lil_matrix((nn, nn), dtype=np.float64)
  
     for e in range(ne):
-        dof_indices = tag_to_dof[conn[e, :]]
+        element_tags = conn[e, :]
+        dof_indices = tag_to_dof[element_tags]
+
         for g in range(ngp):
             wg   = w[g]
             detg = det[e, g]
+
             for a in range(nloc):
                 Ia = int(dof_indices[a])
+
                 for b in range(nloc):
                     Ib = int(dof_indices[b])
-                    K_robin[Ia, Ib] += wg * P * N[g, a] * N[g, b] * detg
+                    R[Ia, Ib] += wg * P * N[g, a] * N[g, b] * detg
  
-    return K_robin
+    return R
  
  
 def assemble_robin_rhs(elemTags, conn, det, xphys, w, N, P, c_plasma_fun, tag_to_dof, nn):
     """
-    Assemble the *time-varying* RHS contribution from the Robin BC:
- 
-        -D grad(c).n = P (c_plasma - c)   on Gamma_v
- 
-    The term  P * c_plasma  on the right-hand side contributes:
- 
-        F_robin[i] = integral_Gamma_v  P * c_plasma(x, t) * N_i  ds
- 
-    Must be called at each time step when c_plasma is time-dependent.
+    Assemble le vecteur source Robin :
+        G_i = ∫_{Γ_v} P c_plasma φ_i dΓ
+
+    Il vient du terme :
+        ∫_{Γ_v} P c_plasma v dΓ
  
     Parameters
     ----------
@@ -166,7 +136,7 @@ def assemble_robin_rhs(elemTags, conn, det, xphys, w, N, P, c_plasma_fun, tag_to
  
     Returns
     -------
-    F_robin : ndarray (nn,)
+    G : ndarray (nn,)
     """
     ne  = len(elemTags)
     ngp = len(w)
@@ -177,17 +147,20 @@ def assemble_robin_rhs(elemTags, conn, det, xphys, w, N, P, c_plasma_fun, tag_to
     conn  = np.asarray(conn,  dtype=np.int64  ).reshape(ne, nloc)
     N     = np.asarray(N,     dtype=np.float64).reshape(ngp, nloc)
  
-    F_robin = np.zeros(nn, dtype=np.float64)
+    G = np.zeros(nn, dtype=np.float64)
  
     for e in range(ne):
-        dof_indices = tag_to_dof[conn[e, :]]
+        element_tags = conn[e, :]
+        dof_indices = tag_to_dof[element_tags]
+
         for g in range(ngp):
             xg   = xphys[e, g]
             wg   = w[g]
             detg = det[e, g]
             cp   = float(c_plasma_fun(xg))
+
             for a in range(nloc):
                 Ia = int(dof_indices[a])
-                F_robin[Ia] += wg * P * cp * N[g, a] * detg
+                G[Ia] += wg * P * cp * N[g, a] * detg
  
-    return F_robin
+    return G
