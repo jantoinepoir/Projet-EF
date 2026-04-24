@@ -284,6 +284,8 @@ def main():
             U,
             dt=dt,
             theta=theta,
+            dirichlet_dofs=[],
+            dir_vals_np1=[]
         )
 
         times[step + 1] = t_np1
