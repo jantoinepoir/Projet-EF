@@ -91,7 +91,7 @@ def main():
     "Layer2": {"D": 4.17e-10, "kr": 1.0e-4},  # tumoral proliférant #tissu plus lâche au milieu/tumoral standard (la diffusion y est plus rapide car moins de capture)
     "Layer3": {"D": 9.96e-10, "kr": 5.0e-6},  # nécrosé #tissu tumoral nécrosé au centre (la diffusion y est très rapide car quasi pas de capture, moins de cellules viables)--> la pénétration y est facilitée
     }
-    P        = 2.78e-6   # m/s  (DOX libre, Eikenberry Table 1)
+    P        = 3e-8  # m/s  (DOX libre, Eikenberry Table 1)
     C_PLASMA = 5.0e-3    # mol/m³
        
     
