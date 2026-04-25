@@ -82,7 +82,7 @@ def main():
     parser.add_argument("--clt", type=float, default=5e-6, help="Mesh size at tissue boundary [m]")
 
     # Physique
-    parser.add_argument("--D", type=float, default=2.4e-11, help="Diffusion coefficient [m^2/s]")
+    parser.add_argument("--D", type=float, default=3.73e-10, help="Diffusion coefficient [m^2/s]")
     parser.add_argument("--P", type=float, default=3.0e-8, help="Vascular permeability [m/s]")
     parser.add_argument("--kr", type=float, default=2.0e-4, help="Reaction/uptake rate [s^-1]")
 
