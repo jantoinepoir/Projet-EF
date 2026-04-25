@@ -85,14 +85,16 @@ def main():
     args = parser.parse_args()
 
     #Propiétés des différentes couches (diffusion et capture)
-    layer_props = { #D est le coefficient de diffusion, kr est le taux de capture (consommation) de la doxorubicine par les cellules du tissu
-        "Layer1": {"D": 1.0e-10, "kr": 5.0e-6}, #tissu dense près du vaisseau (la diffusion y est plus lente car forte capture)
-        "Layer2": {"D": 5.0e-10, "kr": 2.0e-7}, #tissu plus lâche au milieu/tumoral standard (la diffusion y est plus rapide car moins de capture)
-        "Layer3": {"D": 9.96e-10, "kr": 5.0e-8} #tissu tumoral nécrosé au centre (la diffusion y est très rapide car quasi pas de capture, moins de cellules viables)--> la pénétration y est facilitée
+    
+    layer_props = {#D est le coefficient de diffusion, kr est le taux de capture (consommation) de la doxorubicine par les cellules du tissu
+    "Layer1": {"D": 1.58e-10, "kr": 2.0e-4},  # péri-vasculaire dense #tissu dense près du vaisseau (la diffusion y est plus lente car forte capture)
+    "Layer2": {"D": 4.17e-10, "kr": 1.0e-4},  # tumoral proliférant #tissu plus lâche au milieu/tumoral standard (la diffusion y est plus rapide car moins de capture)
+    "Layer3": {"D": 9.96e-10, "kr": 5.0e-6},  # nécrosé #tissu tumoral nécrosé au centre (la diffusion y est très rapide car quasi pas de capture, moins de cellules viables)--> la pénétration y est facilitée
     }
-    #conditions aux limites (condition de Robin au niveau de la paroi du vaisseau):
-    P = 2.78e-6 #perméabilité pour la doxorubicine libre
-    C_PLASMA = 5.0e-3 
+    P        = 2.78e-6   # m/s  (DOX libre, Eikenberry Table 1)
+    C_PLASMA = 5.0e-3    # mol/m³
+       
+    
 
 
     gmsh_init("skin_diffusion")
