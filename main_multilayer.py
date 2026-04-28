@@ -190,7 +190,7 @@ def main():
 
     #pour le graphe de la concentration moyenne a differents moments 
     # Initialisation pour le suivi à des moments précis
-    target_times = [100.0, 200.0, 300.0] 
+    target_times = [100.0, 500.0, 1000.0] 
     snapshots = {}
 
     F_robin = assemble_robin_rhs(
@@ -219,7 +219,7 @@ def main():
                 snapshots[t_target] = U.copy()
 
         ax.clear()
-        vmin, vmax = 0, C_PLASMA
+        vmin, vmax = 0, 1
         contour = plot_fe_solution_2d(
             elemTags, elemNodeTags, nodeCoords, nodeTags, U,
             tag_to_dof, ax=ax, cmap='turbo', vmin=vmin, vmax=vmax   
@@ -250,10 +250,10 @@ def main():
     plt.figure()
     for t_val, U_snap in snapshots.items():
         rho, profile = linear_profile(dof_coords, U_snap, args.L) 
-        plt.plot(rho, profile, label=f't = {t_val:.0f} s')
+        plt.plot(rho, profile/ C_PLASMA, label=f't = {t_val:.0f} s')
     plt.xlabel('Distance normalisée (0=vaisseau, 1=limite)')
-    plt.ylabel('Concentration [mol/m³]')
-    plt.title('Profil de pénétration par couches')
+    plt.ylabel('c/C_PLASMA')
+    plt.title('Profil de pénétration par couches (Normalisé)')
     plt.legend()
     plt.grid(True)
     plt.show()
