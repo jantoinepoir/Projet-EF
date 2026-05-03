@@ -89,8 +89,8 @@ def main():
     # Discrétisation
     parser.add_argument("--order", type=int, default=1, help="Polynomial order")
     parser.add_argument("--theta", type=float, default=1.0, help="Theta-scheme")
-    parser.add_argument("--dt", type=float, default=10.0, help="Time step [s]")
-    parser.add_argument("--nsteps", type=int, default=360, help="Number of time steps")
+    parser.add_argument("--dt", type=float, default=1.0, help="Time step [s]")
+    parser.add_argument("--nsteps", type=int, default=300, help="Number of time steps")
 
     args = parser.parse_args()
 
@@ -251,7 +251,7 @@ def main():
     times[0] = 0.0
     avg_conc[0] = M.dot(U).sum() / mass_total
 
-    target_profile_times = [100.0, 500.0, 1000.0, T]
+    target_profile_times = [1.0, 5.0, 10.0, 20.0, 50.0, 100.0, T]
     snapshot_steps = sorted(
         {
             min(args.nsteps, max(0, int(round(target_time / dt))))
@@ -270,7 +270,7 @@ def main():
 
     # Échelle adaptée aux résultats en mmol/m³.
     # La solution finale est autour de 0.6 mmol/m³ avec les paramètres par défaut.
-    c_max_display = 0.6
+    c_max_display = 0.02
 
     # ------------------------------------------------------------------
     # 9. Boucle temporelle
@@ -296,7 +296,7 @@ def main():
         if step + 1 in snapshot_steps:
             snapshots[t_np1] = U.copy()
 
-        if step % 10 == 0 or step == args.nsteps - 1:
+        if step % 2 == 0 or step == args.nsteps - 1:
             print(
                 f"step {step + 1}, t={t_np1:.1f}, "
                 f"min={U.min():.3e}, max={U.max():.3e}"

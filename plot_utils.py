@@ -108,8 +108,21 @@ def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_
 
     U = np.array(U).flatten()
 
-    norm = None
-    contour = ax.tricontourf(x, y, triangles, U, levels=100, cmap=cmap, norm=norm)
+    if vmin is not None and vmax is not None:
+        levels = np.linspace(vmin, vmax, 100)
+        contour = ax.tricontourf(
+            x, y, triangles, U,
+            levels=levels,
+            cmap=cmap,
+            extend="both",
+        )
+    else:
+        contour = ax.tricontourf(
+            x, y, triangles, U,
+            levels=100,
+            cmap=cmap,
+            norm=norm
+        )
 
     if show_mesh:
         ax.triplot(x, y, triangles, color="white", linewidth=0.2, alpha=0.3)
