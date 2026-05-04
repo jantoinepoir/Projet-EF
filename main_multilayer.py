@@ -238,9 +238,9 @@ def main():
 
     # 3. trace le graphique de l'évolution de la concentration moyenne dans le tissu au cours du temps:
     plt.figure(figsize=(8, 5))
-    plt.plot(times, avg_conc, label='Conc. Moyenne', color='blue', linewidth=2)
+    plt.plot(times, avg_conc * 1e3, label='Conc. Moyenne', color='blue', linewidth=2)
     plt.xlabel('Temps [s]')
-    plt.ylabel('Concentration Moyenne [mol/m³]')
+    plt.ylabel('Concentration moyenne [mmol/m³]')
     plt.title('Évolution de la concentration moyenne dans le tissu')
     plt.grid(True)
     plt.legend()
