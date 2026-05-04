@@ -389,6 +389,9 @@ def main():
     ax2.set_title("Profils radiaux de concentration")
     ax2.legend()
     ax2.grid(True)
+    
+    fig1.savefig("concentration_moyenne_krogh.png", dpi=300, bbox_inches="tight")
+    fig2.savefig("profils_krogh.png", dpi=300, bbox_inches="tight")
 
     print("Done.")
 

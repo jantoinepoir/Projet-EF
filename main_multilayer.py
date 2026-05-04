@@ -244,6 +244,7 @@ def main():
     plt.title('Évolution de la concentration moyenne dans le tissu')
     plt.grid(True)
     plt.legend()
+    plt.savefig("concentration_moyenne_multicouche.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     # 4. trace les profils de concentration à différents moments (pour voir comment la doxorubicine pénètre dans le tissu au cours du temps):
@@ -256,6 +257,7 @@ def main():
     plt.title('Profil de pénétration par couches (Normalisé)')
     plt.legend()
     plt.grid(True)
+    plt.savefig("profils_multicouche.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     layer_ratios = [0.13, 0.53, 0.34]
