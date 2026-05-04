@@ -77,7 +77,7 @@ def print_diffusion_metrics(layer_props, L, ratios):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--L", type=float, default=0.00015)
-    parser.add_argument("--H", type=float, default=0.005)
+    parser.add_argument("--H", type=float, default=0.00010)
     parser.add_argument("--cl", type=float, default=0.000015)
     parser.add_argument("--dt", type=float, default=20.0)
     parser.add_argument("--nsteps", type=int, default=100)
@@ -224,7 +224,13 @@ def main():
             elemTags, elemNodeTags, nodeCoords, nodeTags, U,
             tag_to_dof, ax=ax, cmap='turbo', vmin=vmin, vmax=vmax   
         )
-        
+
+        #on rajoute des lignes pour marquer les interfaces entre les couches
+        x_bounds = np.cumsum([0, 0.13, 0.53, 0.34]) * args.L
+        for x in x_bounds[1:-1]:  # on ne marque pas les bords extérieurs
+            ax.axvline(x=x, color='black', linestyle='-', linewidth=1)         
+
+
         if cbar is None:
             cbar = plt.colorbar(contour, ax=ax, label="Concentration")
 
