@@ -21,7 +21,7 @@ from stiffness import (
 )
 from mass import assemble_mass
 from dirichlet import theta_step
-from plot_utils import plot_fe_solution_2d, plot_mesh_2d
+from plot_utils import plot_fe_solution_2d_multicouche, plot_mesh_2d
 
 
 #pour pouvoir faire le graphe de la concentration moyenne à différents moments
@@ -220,7 +220,7 @@ def main():
 
         ax.clear()
         vmin, vmax = 0, 1
-        contour = plot_fe_solution_2d(
+        contour = plot_fe_solution_2d_multicouche(
             elemTags, elemNodeTags, nodeCoords, nodeTags, U,
             tag_to_dof, ax=ax, cmap='turbo', vmin=vmin, vmax=vmax   
         )

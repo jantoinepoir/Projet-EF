@@ -73,7 +73,7 @@ def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags,
     return ax
 
 
-def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof,
+def plot_fe_solution_2d_krogh(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof,
                         show_mesh=False, ax=None, cmap="hot", vmin=None, vmax=None, norm=None):
     """
     Affiche la solution éléments finis 2D.
@@ -130,4 +130,50 @@ def plot_fe_solution_2d(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_
     ax.set_aspect("equal")
     ax.axis("off")
 
+    return contour
+
+def plot_fe_solution_2d_multicouche(elemTags, elemNodeTags, nodeCoords, nodeTags, U, tag_to_dof,
+                        show_mesh=False, ax=None, cmap="hot", vmin=None, vmax=None, norm=None):
+    """
+    Affiche la solution éléments finis 2D.
+ 
+    U contient les valeurs nodales de la concentration.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+ 
+    num_dofs = len(U)
+    coords_mapped = np.zeros((num_dofs, 2))
+ 
+    if nodeCoords.size != len(nodeTags) * 3:
+        _, coords_to_use, _ = gmsh.model.mesh.getNodes()
+        all_coords = coords_to_use.reshape(-1, 3)
+    else:
+        all_coords = nodeCoords.reshape(-1, 3)
+ 
+    for i, tag in enumerate(nodeTags):
+        dof_idx = tag_to_dof[int(tag)]
+        if dof_idx != -1:
+            coords_mapped[dof_idx] = all_coords[i, :2]
+ 
+    x = coords_mapped[:, 0]
+    y = coords_mapped[:, 1]
+ 
+    num_elements = len(elemTags)
+    nodes_per_elem = len(elemNodeTags) // num_elements
+ 
+    conn_reshaped = elemNodeTags.reshape(-1, nodes_per_elem)
+    triangles = tag_to_dof[conn_reshaped[:, :3].astype(int)]
+ 
+    U = np.array(U).flatten()
+ 
+    norm = None
+    contour = ax.tricontourf(x, y, triangles, U, levels=100, cmap=cmap, norm=norm)
+ 
+    if show_mesh:
+        ax.triplot(x, y, triangles, color="white", linewidth=0.2, alpha=0.3)
+ 
+    ax.set_aspect("equal")
+    ax.axis("off")
+ 
     return contour

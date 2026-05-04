@@ -37,7 +37,7 @@ from stiffness import (
 
 from mass import assemble_mass
 from dirichlet import theta_step
-from plot_utils import plot_mesh_2d, plot_fe_solution_2d
+from plot_utils import plot_mesh_2d, plot_fe_solution_2d_krogh
 
 
 def radial_profile(dof_coords, U, Rv, Rt, nbins=60):
@@ -306,7 +306,7 @@ def main():
 
             U_display = np.clip(U * 1e3, 1e-7, None)  # mol/m³ -> mmol/m³, évite log(0)
             
-            contour = plot_fe_solution_2d(
+            contour = plot_fe_solution_2d_krogh(
                 elemTags=elemTags,
                 elemNodeTags=elemNodeTags,
                 nodeTags=nodeTags,
