@@ -28,7 +28,7 @@ def plot_mesh_2d(elemType, nodeTags, nodeCoords, elemTags, elemNodeTags,
     x = coords[:, 0]
     y = coords[:, 1]
 
-    if tag_to_index is None:#Gmsh numérote les nœuds avec des tags arbitraires
+    if tag_to_index is None:# Gmsh numérote les nœuds avec des tags arbitraires
         # Ce tableau de correspondance convertit un tag Gmsh en indice dans le tableau de coordonnées.
         max_node_tag = int(np.max(nodeTags))
         tag_to_index = np.zeros(max_node_tag + 1, dtype=int)

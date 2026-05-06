@@ -89,8 +89,8 @@ def main():
     # Discrétisation
     parser.add_argument("--order", type=int, default=1, help="Polynomial order")
     parser.add_argument("--theta", type=float, default=1.0, help="Theta-scheme")
-    parser.add_argument("--dt", type=float, default=1.0, help="Time step [s]")
-    parser.add_argument("--nsteps", type=int, default=300, help="Number of time steps")
+    parser.add_argument("--dt", type=float, default=20, help="Time step [s]")
+    parser.add_argument("--nsteps", type=int, default=1500, help="Number of time steps")
 
     args = parser.parse_args()
 
@@ -296,7 +296,7 @@ def main():
         if step + 1 in snapshot_steps:
             snapshots[t_np1] = U.copy()
 
-        if step % 2 == 0 or step == args.nsteps - 1:
+        if step % 50 == 0 or step == args.nsteps - 1:
             #print(f"step {step + 1}, t={t_np1:.1f}, "f"min={U.min():.3e}, max={U.max():.3e}")
 
             ax.clear()
@@ -383,7 +383,7 @@ def main():
 
     ax2.set_xlabel(r"Rayon normalisé $\rho=(r-R_v)/(R_t-R_v)$")
     ax2.set_ylabel(r"$c/c_{\mathrm{plasma}}$")
-    ax2.set_title("Profils radiaux de concentration")
+    ax2.set_title("Profils de pénétration radiaux")
     ax2.legend()
     ax2.grid(True)
     
