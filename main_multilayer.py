@@ -235,7 +235,7 @@ def main():
             cbar = plt.colorbar(contour, ax=ax, label="Concentration")
 
         ax.set_aspect('auto')
-        ax.set_title(f"Temps: {step * args.dt:.0f} s")
+        ax.set_title(f"Temps: {(step + 1) * args.dt:.0f} s")
         plt.draw()
         plt.pause(0.1)
 
