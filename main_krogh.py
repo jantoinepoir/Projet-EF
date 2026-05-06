@@ -297,10 +297,7 @@ def main():
             snapshots[t_np1] = U.copy()
 
         if step % 2 == 0 or step == args.nsteps - 1:
-            print(
-                f"step {step + 1}, t={t_np1:.1f}, "
-                f"min={U.min():.3e}, max={U.max():.3e}"
-            )
+            #print(f"step {step + 1}, t={t_np1:.1f}, "f"min={U.min():.3e}, max={U.max():.3e}")
 
             ax.clear()
 
