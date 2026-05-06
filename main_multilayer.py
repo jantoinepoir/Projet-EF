@@ -80,7 +80,7 @@ def main():
     parser.add_argument("--H", type=float, default=0.00010)
     parser.add_argument("--cl", type=float, default=0.000015)
     parser.add_argument("--dt", type=float, default=20.0)
-    parser.add_argument("--nsteps", type=int, default=100)
+    parser.add_argument("--nsteps", type=int, default=1500)
     parser.add_argument("--theta", type=float, default=1.0)
     args = parser.parse_args()
 
@@ -255,18 +255,41 @@ def main():
 
     # 4. trace les profils de concentration à différents moments (pour voir comment la doxorubicine pénètre dans le tissu au cours du temps):
     plt.figure()
+
     for t_val, U_snap in snapshots.items():
-        rho, profile = linear_profile(dof_coords, U_snap, args.L) 
-        plt.plot(rho, profile/ C_PLASMA, label=f't = {t_val:.0f} s')
-    plt.xlabel('Distance normalisée (0=vaisseau, 1=limite)')
+        rho, profile = linear_profile(dof_coords, U_snap, args.L)
+        plt.plot(rho, profile / C_PLASMA, label=f"t = {t_val:.0f} s")
+
+    # Limites normalisées entre les couches
+    layer_ratios = [0.13, 0.53, 0.34]
+    layer_bounds = np.cumsum(layer_ratios)
+
+    # On trace seulement les interfaces internes : 0.13 et 0.66
+    for x_layer in layer_bounds[:-1]:
+        plt.axvline(
+            x=x_layer,
+            color="black",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.8,
+        )
+
+    # Optionnel : noms des couches sur le graphe
+    plt.text(0.065, 0.95, "Couche 1", transform=plt.gca().get_xaxis_transform(),
+            ha="center", va="top", fontsize=9)
+    plt.text(0.395, 0.95, "Couche 2", transform=plt.gca().get_xaxis_transform(),
+            ha="center", va="top", fontsize=9)
+    plt.text(0.83, 0.95, "Couche 3", transform=plt.gca().get_xaxis_transform(),
+            ha="center", va="top", fontsize=9)
+
+    plt.xlabel("Distance normalisée (0 = vaisseau, 1 = limite)")
     plt.ylabel(r"$c/c_{\mathrm{plasma}}$")
-    plt.title('Profil de pénétration par couches')
+    plt.title("Profil de pénétration par couches")
     plt.legend()
     plt.grid(True)
     plt.savefig("profils_multicouche.png", dpi=300, bbox_inches="tight")
     plt.show()
 
-    layer_ratios = [0.13, 0.53, 0.34]
     print_diffusion_metrics(layer_props, args.L, layer_ratios)
 
 
