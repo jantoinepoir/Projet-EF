@@ -289,7 +289,7 @@ def main():
 
     plt.xlabel("Distance normalisée (0 = vaisseau, 1 = limite)")
     plt.ylabel(r"$c/c_{\mathrm{plasma}}$")
-    plt.title("Profil de pénétration par couches")
+    plt.title("Profils de pénétration par couches")
     plt.legend()
     plt.grid(True)
     plt.savefig("profils_multicouche.png", dpi=300, bbox_inches="tight")
