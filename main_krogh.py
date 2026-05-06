@@ -90,7 +90,7 @@ def main():
     parser.add_argument("--order", type=int, default=1, help="Polynomial order")
     parser.add_argument("--theta", type=float, default=1.0, help="Theta-scheme")
     parser.add_argument("--dt", type=float, default=20, help="Time step [s]")
-    parser.add_argument("--nsteps", type=int, default=1500, help="Number of time steps")
+    parser.add_argument("--nsteps", type=int, default=100, help="Number of time steps")
 
     args = parser.parse_args()
 
@@ -251,7 +251,7 @@ def main():
     times[0] = 0.0
     avg_conc[0] = M.dot(U).sum() / mass_total
 
-    target_profile_times = [1.0, 5.0, 10.0, 20.0, 50.0, 100.0, T]
+    target_profile_times = [1.0, 5.0, 10.0, 20.0, 50.0, 100.0, 500.0, 1000.0, T]
     snapshot_steps = sorted(
         {
             min(args.nsteps, max(0, int(round(target_time / dt))))

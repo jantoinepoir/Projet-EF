@@ -80,7 +80,7 @@ def main():
     parser.add_argument("--H", type=float, default=0.00010)
     parser.add_argument("--cl", type=float, default=0.000015)
     parser.add_argument("--dt", type=float, default=20.0)
-    parser.add_argument("--nsteps", type=int, default=1500)
+    parser.add_argument("--nsteps", type=int, default=100)
     parser.add_argument("--theta", type=float, default=1.0)
     args = parser.parse_args()
 
@@ -190,7 +190,7 @@ def main():
 
     #pour le graphe de la concentration moyenne a differents moments 
     # Initialisation pour le suivi à des moments précis
-    target_times = [100.0, 500.0, 1000.0] 
+    target_times = [100.0, 500.0, 1000.0, 2000.0] 
     snapshots = {}
 
     F_robin = assemble_robin_rhs(
@@ -274,13 +274,18 @@ def main():
             alpha=0.8,
         )
 
-    # Optionnel : noms des couches sur le graphe
-    plt.text(0.065, 0.95, "Couche 1", transform=plt.gca().get_xaxis_transform(),
-            ha="center", va="top", fontsize=9)
-    plt.text(0.395, 0.95, "Couche 2", transform=plt.gca().get_xaxis_transform(),
-            ha="center", va="top", fontsize=9)
-    plt.text(0.83, 0.95, "Couche 3", transform=plt.gca().get_xaxis_transform(),
-            ha="center", va="top", fontsize=9)
+    # Position verticale du texte
+    y_text = 0.225
+
+    # Centres des trois couches
+    x_couche1 = 0.045
+    x_couche2 = (0.13 + 0.66) / 2
+    x_couche3 = (0.66 + 1.0) / 2
+
+    # Noms des couches
+    plt.text(x_couche1, y_text, "Couche 1", ha='center', va='center', fontsize=11)
+    plt.text(x_couche2, y_text, "Couche 2", ha='center', va='center', fontsize=11)
+    plt.text(x_couche3, y_text, "Couche 3", ha='center', va='center', fontsize=11)
 
     plt.xlabel("Distance normalisée (0 = vaisseau, 1 = limite)")
     plt.ylabel(r"$c/c_{\mathrm{plasma}}$")
