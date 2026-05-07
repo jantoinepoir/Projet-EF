@@ -1,23 +1,28 @@
 # main_krogh.py
 """
-Krogh cylinder model — drug diffusion from capillary to tissue.
+Modèle de Krogh : diffusion de la doxorubicine depuis un vaisseau vers le tissu.
 
-PDE:
-    dc/dt - D * Delta(c) + kr * c = 0 in Omega
+Équation résolue :
+    dc/dt - div(D grad(c)) + kr c = 0 dans Ω
 
-Boundary conditions:
-    Gamma_v: -D grad(c).n = P * (c_plasma - c)  [Robin]
-    Gamma_t: -D grad(c).n = 0                   [Neumann homog.]
+Conditions aux limites :
+    Γ_v : -D grad(c).n = P(c_plasma - c)   condition de Robin
+    Γ_t : -D grad(c).n = 0                 condition de Neumann homogène
 
-Matrix form:
-    M dU/dt + (K_diff + K_reac + R_robin) U = G_robin
+Forme matricielle :
+    M dU/dt + K U = F
+
+avec :
+    K = K_diff + K_reac + R
+    F = F0 + G
+
+où R et G viennent de la condition de Robin.
 """
 
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
-from matplotlib.colors import LogNorm
 from matplotlib.patches import Circle
 
 from gmsh_utils import (
@@ -41,9 +46,19 @@ from plot_utils import plot_mesh_2d, plot_fe_solution_2d_krogh
 
 
 def radial_profile(dof_coords, U, Rv, Rt, nbins=60):
+    """
+    Calcule un profil radial moyen de concentration.
+
+    Les nœuds sont regroupés selon leur rayon normalisé :
+        rho = (r - Rv) / (Rt - Rv)
+
+    Pour chaque intervalle radial, on calcule la moyenne des concentrations
+    nodales situées dans cet intervalle.
+    """
     coords = np.asarray(dof_coords, dtype=float)
     r = np.sqrt(coords[:, 0] ** 2 + coords[:, 1] ** 2)
 
+    # On ne considère que les nœuds situés dans le domaine physique (entre Rv et Rt)
     mask = (r >= Rv) & (r <= Rt)
     if np.sum(mask) == 0:
         return np.array([]), np.array([])
@@ -75,18 +90,18 @@ def radial_profile(dof_coords, U, Rv, Rt, nbins=60):
 def main():
     parser = argparse.ArgumentParser(description="Krogh cylinder – drug diffusion")
 
-    # Géométrie
+    # Paramètres géométriques et de maillage
     parser.add_argument("--Rv", type=float, default=8e-6, help="Vessel radius [m]")
     parser.add_argument("--Rt", type=float, default=1e-4, help="Tissue radius [m]")
     parser.add_argument("--clv", type=float, default=0.5e-6, help="Mesh size at vessel wall [m]")
     parser.add_argument("--clt", type=float, default=5e-6, help="Mesh size at tissue boundary [m]")
 
-    # Physique
+    # Paramètres physiques
     parser.add_argument("--D", type=float, default=3.73e-10, help="Diffusion coefficient [m^2/s]")
     parser.add_argument("--P", type=float, default=3.0e-8, help="Vascular permeability [m/s]")
     parser.add_argument("--kr", type=float, default=2.0e-4, help="Reaction/uptake rate [s^-1]")
 
-    # Discrétisation
+    # Paramètres temporels
     parser.add_argument("--order", type=int, default=1, help="Polynomial order")
     parser.add_argument("--theta", type=float, default=1.0, help="Theta-scheme")
     parser.add_argument("--dt", type=float, default=20, help="Time step [s]")
@@ -105,11 +120,9 @@ def main():
 
     C_PLASMA = 5.0e-3  # mol/m³
 
-    # ------------------------------------------------------------------
-    # 1. Maillage
-    # ------------------------------------------------------------------
-    gmsh_init("krogh_cylinder")
 
+    # 1. Maillage du cylindre de Krogh
+    gmsh_init("krogh_cylinder")
     (
         elemType,
         nodeTags,
@@ -136,9 +149,8 @@ def main():
         bnds_tags,
     )
 
-    # ------------------------------------------------------------------
-    # 2. Mapping Gmsh node tags -> DoFs compacts
-    # ------------------------------------------------------------------
+
+    # 2. Construction de la correspondance entre tags Gmsh et indices de degrés de liberté
     unique_dofs_tags = np.unique(elemNodeTags)
     nn = len(unique_dofs_tags)
 
@@ -149,31 +161,30 @@ def main():
     all_coords = nodeCoords.reshape(-1, 3)
     dof_coords = np.zeros((nn, 3), dtype=float)
 
+    # tag_to_idx relie un tag Gmsh à sa position dans nodeCoords
     for i, tag in enumerate(nodeTags):
         tag_to_idx[int(tag)] = i
 
+    # tag_to_dof relie un tag Gmsh à son indice de degré de liberté 
     for i, tag in enumerate(unique_dofs_tags):
         tag_to_dof[int(tag)] = i
         dof_coords[i] = all_coords[tag_to_idx[int(tag)]]
 
-    # ------------------------------------------------------------------
-    # 3. Quadrature volume
-    # ------------------------------------------------------------------
+
+    # 3. Données de quadrature volume
     xi, w, N, gN = prepare_quadrature_and_basis(elemType, args.order)
     jac, det, coords = get_jacobians(elemType, xi)
 
-    # ------------------------------------------------------------------
-    # 4. Quadrature bord Robin
-    # ------------------------------------------------------------------
+
+    # 4. Données de quadrature bord Robin (frontière du vaisseau)
     elemTypeV, elemTagsV, elemNodeTagsV, entityTagV = getPhysical("VesselWall")
 
     xiV, wV, NV, _ = prepare_quadrature_and_basis(elemTypeV, args.order)
     _, detV, coordsV = get_jacobians(elemTypeV, xiV, tag=entityTagV)
 
-    # ------------------------------------------------------------------
-    # 5. Assemblage
-    # ------------------------------------------------------------------
 
+    # 5. Assemblage des matrices et vecteurs
+    #Matrice de masse M
     M_lil = assemble_mass(
         elemTags,
         elemNodeTags,
@@ -183,6 +194,8 @@ def main():
         tag_to_dof,
     )
 
+    # Matrice de diffusion K_diff et second membre volumique F0
+    # Ici F0 est nul car il n'y a pas de source volumique
     K_diff_lil, F0 = assemble_stiffness_and_rhs(
         elemTags,
         elemNodeTags,
@@ -197,9 +210,11 @@ def main():
         tag_to_dof=tag_to_dof,
     )
 
+    # Matrice de réaction K_reac = kr * M
     K_reac_lil = kr * M_lil
 
-    K_robin_lil = assemble_robin_matrix(
+    # Matrice de Robin R, ajoutée au membre gauche
+    R_lil = assemble_robin_matrix(
         elemTagsV,
         elemNodeTagsV,
         detV,
@@ -211,12 +226,13 @@ def main():
         nn=nn,
     )
 
-    K_total_lil = K_diff_lil + K_reac_lil + K_robin_lil
+    K_lil = K_diff_lil + K_reac_lil + R_lil
 
     M = M_lil.tocsr()
-    K = K_total_lil.tocsr()
+    K = K_lil.tocsr()
 
-    G_robin = assemble_robin_rhs(
+    # Second membre de Robin G, ajouté au membre droit
+    G = assemble_robin_rhs(
         elemTagsV,
         elemNodeTagsV,
         detV,
@@ -229,16 +245,15 @@ def main():
         nn=nn,
     )
 
-    F = F0 + G_robin
+    # Second membre total 
+    F = F0 + G
 
-    # ------------------------------------------------------------------
+
     # 6. Condition initiale
-    # ------------------------------------------------------------------
     U = np.zeros(nn, dtype=float)
 
-    # ------------------------------------------------------------------
-    # 7. Préparation résultats
-    # ------------------------------------------------------------------
+
+    # 7. Préparation du stockage desrésultats
     print(f"Starting time integration: {args.nsteps} steps, dt={dt} s, T={T:.1f} s")
     print(f"D={D:.2e} m²/s, P={P:.2e} m/s, kr={kr:.2e} s⁻¹")
     print(f"Rv={Rv:.2e} m, Rt={Rt:.2e} m")
@@ -251,6 +266,7 @@ def main():
     times[0] = 0.0
     avg_conc[0] = M.dot(U).sum() / mass_total
 
+    # Instants auxquels on garde une copie pour tracer les profils radiaux
     target_profile_times = [1.0, 5.0, 10.0, 20.0, 50.0, 100.0, 500.0, 1000.0, T]
     snapshot_steps = sorted(
         {
@@ -261,20 +277,17 @@ def main():
 
     snapshots = {}
 
-    # ------------------------------------------------------------------
-    # 8. Affichage interactif
-    # ------------------------------------------------------------------
+
+    # 8. Affichage interactif de la diffusion
     plt.ion()
     fig, ax = plt.subplots(figsize=(7, 6))
     cbar = None
 
     # Échelle adaptée aux résultats en mmol/m³.
-    # La solution finale est autour de 0.6 mmol/m³ avec les paramètres par défaut.
     c_max_display = 0.02
 
-    # ------------------------------------------------------------------
+
     # 9. Boucle temporelle
-    # ------------------------------------------------------------------
     for step in range(args.nsteps):
         t_np1 = (step + 1) * dt
 
@@ -297,10 +310,9 @@ def main():
             snapshots[t_np1] = U.copy()
 
         if step % 50 == 0 or step == args.nsteps - 1:
-            #print(f"step {step + 1}, t={t_np1:.1f}, "f"min={U.min():.3e}, max={U.max():.3e}")
-
             ax.clear()
 
+            # Conversion mol/m³ -> mmol/m³ pour l'affichage.
             U_display = np.clip(U * 1e3, 1e-7, None)  # mol/m³ -> mmol/m³, évite log(0)
             
             contour = plot_fe_solution_2d_krogh(
@@ -317,7 +329,7 @@ def main():
                 cmap='viridis',
             )
 
-            # trou central fixe = vaisseau
+            # Le disque central correspondant au vaisseau est masqué pour ne pas fausser l'échelle de couleur
             hole = Circle(
                 (0.0, 0.0),
                 Rv,
@@ -360,9 +372,8 @@ def main():
 
     plt.ioff()
 
-    # ------------------------------------------------------------------
-    # 10. Concentration moyenne
-    # ------------------------------------------------------------------
+
+    # 10. Courbe de concentration moyenne
     fig1, ax1 = plt.subplots()
     ax1.plot(times, avg_conc * 1e3, "-o", markersize=3)
     ax1.set_xlabel("Temps [s]")
@@ -370,9 +381,8 @@ def main():
     ax1.set_title("Concentration moyenne du tissu en fonction du temps")
     ax1.grid(True)
 
-    # ------------------------------------------------------------------
-    # 11. Profils radiaux
-    # ------------------------------------------------------------------
+
+    # 11. Profils radiaux normalisés
     fig2, ax2 = plt.subplots()
 
     for time in sorted(snapshots):
