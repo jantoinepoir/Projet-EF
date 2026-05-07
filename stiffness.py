@@ -1,35 +1,27 @@
 # stiffness.py
-
-#assemble la matrice de rigidité K_ij = sum_e ∫_e kappa grad(N_i).grad(N_j) dx, et le second membre F_i = sum_e ∫_e f N_i dx, pour l'équation de diffusion -d/dx (kappa(x) du/dx) = f(x)
-
 import numpy as np
 from scipy.sparse import lil_matrix
 
 
 def assemble_stiffness_and_rhs(elemTags, conn, jac, det, xphys, w, N, gN, kappa_fun, rhs_fun, tag_to_dof):
     """
-    Assemble la matrice de diffusion :
-        K_diff_ij = ∫_Ω D ∇φ_j · ∇φ_i dΩ
+    Assemble la matrice de diffusion et le second membre volumique.
 
-    et le second membre volumique :
+    Matrice de diffusion :
+        K_ij = ∫_Ω kappa ∇φ_j · ∇φ_i dΩ
+
+    Second membre volumique :
         F_i = ∫_Ω f φ_i dΩ
 
-    Dans notre projet Krogh, f = 0.
-
-    Notes:
-    - gmsh gives gN in reference coordinates; we map with inv(J).
-    - For 1D line embedded in 3D, gmsh provides a 3x3 Jacobian; we keep the same approach.
-
-    Returns
-    -------
-    K : lil_matrix (nn x nn)
-    F : ndarray (nn,)
+    Dans notre projet, kappa correspond au coefficient de diffusion D.
+    Le terme f est nul dans les modèles étudiés, mais il est gardé dans la fonction pour conserver un assemblage général.
     """
-    ne = len(elemTags)
-    ngp = len(w)
-    nloc = int(len(conn) // ne)
-    nn = int(np.max(tag_to_dof) + 1)
+    ne = len(elemTags) # nombre d'éléments
+    ngp = len(w) # nombre de points de Gauss par élément
+    nloc = int(len(conn) // ne) # nombre de noeuds locaux par élément
+    nn = int(np.max(tag_to_dof) + 1) # nombre total de degrés de liberté
 
+    # Reshape des entrées pour faciliter l'assemblage
     det = np.asarray(det, dtype=np.float64).reshape(ne, ngp)
     xphys = np.asarray(xphys, dtype=np.float64).reshape(ne, ngp, 3)
     jac = np.asarray(jac, dtype=np.float64).reshape(ne, ngp, 3, 3)
@@ -43,10 +35,13 @@ def assemble_stiffness_and_rhs(elemTags, conn, jac, det, xphys, w, N, gN, kappa_
     for e in range(ne):
         element_tags = conn[e, :]
         dof_indices = tag_to_dof[element_tags]
+        
         for g in range(ngp):
             xg = xphys[e, g]
             wg = w[g]
             detg = det[e, g]
+            
+            # Les gradients fournis par Gmsh sont exprimés sur l'élément de référence. On les ramène dans l'élément réel avec inv(J).
             invjacg = np.linalg.inv(jac[e, g])
 
             kappa_g = float(kappa_fun(xg))
@@ -54,42 +49,33 @@ def assemble_stiffness_and_rhs(elemTags, conn, jac, det, xphys, w, N, gN, kappa_
 
             for a in range(nloc):
                 Ia = int(dof_indices[a])
-                F[Ia] += wg * f_g * N[g, a] * detg
                 gradNa = invjacg @ gN[g, a]
+
+                F[Ia] += wg * f_g * N[g, a] * detg
+                
 
                 for b in range(nloc):
                     Ib = int(dof_indices[b])
                     gradNb = invjacg @ gN[g, b]
+
                     K[Ia, Ib] += wg * kappa_g * float(np.dot(gradNa, gradNb)) * detg
 
     return K, F
 
+
+
 def assemble_robin_matrix(elemTags, conn, det, xphys, w, N, P, tag_to_dof, nn):
     """
-    Assemble la matrice Robin :
+    Assemble la matrice associée à la condition de Robin.
+
+    Pour la condition :
+        -D ∇c · n = P(c_plasma - c)
+
+    la formulation faible ajoute au membre gauche :
         R_ij = ∫_{Γ_v} P φ_j φ_i dΓ
 
-    Elle vient du terme :
-        ∫_{Γ_v} P c v dΓ
- 
-    This matrix does NOT depend on c_plasma, so it is assembled once and
-    added to the diffusion stiffness K.
- 
-    Parameters
-    ----------
-    elemTags      : (ne,) boundary element tags
-    conn          : flattened boundary connectivity (ne * nloc_bnd)
-    det           : flattened boundary det(J) from get_jacobians on the boundary
-    xphys         : flattened physical coords of Gauss points (ne * ngp * 3)
-    w             : Gauss weights (ngp,)
-    N             : flattened boundary basis values (ngp * nloc_bnd)
-    P             : float, vascular permeability  [m/s]
-    tag_to_dof    : array mapping gmsh node tag -> dof index
-    nn            : total number of dofs
- 
-    Returns
-    -------
-    R : lil_matrix (nn x nn)
+    Cette matrice ne dépend pas de la concentration plasmatique. Elle peut donc
+    être assemblée une seule fois, puis ajoutée à la matrice de diffusion.
     """
     ne  = len(elemTags)
     ngp = len(w)
@@ -119,24 +105,21 @@ def assemble_robin_matrix(elemTags, conn, det, xphys, w, N, P, tag_to_dof, nn):
  
     return R
  
- 
+
+
 def assemble_robin_rhs(elemTags, conn, det, xphys, w, N, P, c_plasma_fun, tag_to_dof, nn):
     """
-    Assemble le vecteur source Robin :
+    Assemble le second membre associé à la condition de Robin.
+
+    Pour la condition :
+        -D ∇c · n = P(c_plasma - c)
+
+    la formulation faible ajoute au membre droit :
         G_i = ∫_{Γ_v} P c_plasma φ_i dΓ
 
-    Il vient du terme :
-        ∫_{Γ_v} P c_plasma v dΓ
- 
-    Parameters
-    ----------
-    c_plasma_fun  : callable  c_plasma_fun(xyz) -> float
-                    Plasma concentration at position xyz (length-3 array).
-                    For a uniform plasma concentration c0, use: lambda x: c0
- 
-    Returns
-    -------
-    G : ndarray (nn,)
+    La concentration plasmatique est donnée sous forme de fonction afin de
+    pouvoir utiliser soit une valeur constante, soit une valeur dépendant de
+    la position ou du temps.
     """
     ne  = len(elemTags)
     ngp = len(w)
