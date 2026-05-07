@@ -371,7 +371,7 @@ def main():
             plt.pause(0.001)
 
     plt.ioff()
-
+    plt.show()
 
     # 10. Courbe de concentration moyenne
     fig1, ax1 = plt.subplots()

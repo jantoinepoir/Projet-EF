@@ -327,28 +327,25 @@ def main():
     plt.show()
 
     # 9. Courbe de concentration moyenne
-    plt.figure(figsize=(8, 5))
-    plt.plot(times, avg_conc * 1e3, label='Conc. Moyenne', color='blue', linewidth=2)
-    plt.xlabel('Temps [s]')
-    plt.ylabel('Concentration moyenne [mmol/m³]')
-    plt.title('Concentration moyenne du tissu en fonction du temps')
-    plt.grid(True)
-    plt.legend()
-    plt.savefig("concentration_moyenne_multicouche.png", dpi=300, bbox_inches="tight")
-    plt.show()
+    fig1, ax1 = plt.subplots()
+    ax1.plot(times, avg_conc * 1e3, "-o", markersize=3)
+    ax1.set_xlabel("Temps [s]")
+    ax1.set_ylabel("Concentration moyenne [mmol/m³]")
+    ax1.set_title("Concentration moyenne du tissu en fonction du temps")
+    ax1.grid(True)
 
     # 10. Profils de pénétration par couches
-    plt.figure()
+    fig2, ax2 = plt.subplots()
 
     for t_val, U_snap in snapshots.items():
         rho, profile = linear_profile(dof_coords, U_snap, args.L)
-        plt.plot(rho, profile / C_PLASMA, label=f"t = {t_val:.0f} s")
+        ax2.plot(rho, profile / C_PLASMA, label=f"t = {t_val:.0f} s")
 
     layer_ratios = [0.13, 0.53, 0.34]
     layer_bounds = np.cumsum(layer_ratios)
 
     for x_layer in layer_bounds[:-1]:
-        plt.axvline(
+        ax2.axvline(
             x=x_layer,
             color="black",
             linestyle="--",
@@ -357,24 +354,27 @@ def main():
         )
 
     y_text = 0.225
-
     x_couche1 = 0.045
     x_couche2 = (0.13 + 0.66) / 2
     x_couche3 = (0.66 + 1.0) / 2
 
-    plt.text(x_couche1, y_text, "Couche 1", ha='center', va='center', fontsize=11)
-    plt.text(x_couche2, y_text, "Couche 2", ha='center', va='center', fontsize=11)
-    plt.text(x_couche3, y_text, "Couche 3", ha='center', va='center', fontsize=11)
+    ax2.text(x_couche1, y_text, "Couche 1", ha='center', va='center', fontsize=11)
+    ax2.text(x_couche2, y_text, "Couche 2", ha='center', va='center', fontsize=11)
+    ax2.text(x_couche3, y_text, "Couche 3", ha='center', va='center', fontsize=11)
 
-    plt.xlabel("Distance normalisée (0 = vaisseau, 1 = limite)")
-    plt.ylabel(r"$c/c_{\mathrm{plasma}}$")
-    plt.title("Profils de pénétration par couches")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig("profils_multicouche.png", dpi=300, bbox_inches="tight")
+    ax2.set_xlabel("Distance normalisée (0 = vaisseau, 1 = limite)")
+    ax2.set_ylabel(r"$c/c_{\mathrm{plasma}}$")
+    ax2.set_title("Profils de pénétration par couches")
+    ax2.legend()
+    ax2.grid(True)
+    
+    fig1.savefig("concentration_moyenne_multicouche.png", dpi=300, bbox_inches="tight")
+    fig2.savefig("profils_multicouche.png", dpi=300, bbox_inches="tight")
+    
+    print_diffusion_metrics(layer_props, args.L, layer_ratios)
+    print("Done.")
     plt.show()
 
-    print_diffusion_metrics(layer_props, args.L, layer_ratios)
 
 
 if __name__ == "__main__":
