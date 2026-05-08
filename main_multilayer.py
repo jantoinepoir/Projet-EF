@@ -115,7 +115,7 @@ def main():
     # Paramètres temporels
     parser.add_argument("--order", type=int, default=1, help="Ordre des éléments finis")
     parser.add_argument("--dt", type=float, default=20.0)
-    parser.add_argument("--nsteps", type=int, default=100)
+    parser.add_argument("--nsteps", type=int, default=1000)
     parser.add_argument("--theta", type=float, default=1.0)
     
     args = parser.parse_args()
@@ -270,7 +270,7 @@ def main():
 
 
     # Instants auxquels on garde une copie pour tracer les profils
-    target_profile_times = [100.0, 500.0, 1000.0, 2000.0] 
+    target_profile_times = list(np.arange(1000.0, T + 1, 1000.0)) 
     snapshot_steps = sorted(
         {
             min(args.nsteps, max(0, int(round(target_time / dt))))
@@ -319,6 +319,14 @@ def main():
 
         ax.set_aspect('auto')
         ax.set_title(f"Temps: {(step + 1) * args.dt:.0f} s")
+        
+        if step + 1 in snapshot_steps:
+            fig.savefig(
+                f"diffusion_multicouche_{int(times[step + 1])}s.png",
+                dpi=300,
+                bbox_inches="tight"
+            )
+
         plt.draw()
         plt.pause(0.1)
 
@@ -373,7 +381,9 @@ def main():
     
     print_diffusion_metrics(layer_props, args.L, layer_ratios)
     print("Done.")
+    
     plt.show()
+    gmsh_finalize()
 
 
 
