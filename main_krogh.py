@@ -366,7 +366,7 @@ def main():
             ax.set_xticks(ticks)
             ax.set_yticks(ticks)
 
-            fig.savefig(f"diffusion_krogh_{int(t_np1)}s.png", dpi=300, bbox_inches="tight")
+            #fig.savefig(f"diffusion_krogh_{int(t_np1)}s.png", dpi=300, bbox_inches="tight")
 
             fig.canvas.draw()
             fig.canvas.flush_events()
