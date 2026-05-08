@@ -104,7 +104,7 @@ def main():
     # Paramètres temporels
     parser.add_argument("--order", type=int, default=1, help="Polynomial order")
     parser.add_argument("--theta", type=float, default=1.0, help="Theta-scheme")
-    parser.add_argument("--dt", type=float, default=20, help="Time step [s]")
+    parser.add_argument("--dt", type=float, default=1.0, help="Time step [s]")
     parser.add_argument("--nsteps", type=int, default=100, help="Number of time steps")
 
     args = parser.parse_args()
@@ -309,7 +309,7 @@ def main():
         if step + 1 in snapshot_steps:
             snapshots[t_np1] = U.copy()
 
-        if step % 50 == 0 or step == args.nsteps - 1:
+        if step % 2.0 == 0 or step == args.nsteps - 1:
             ax.clear()
 
             # Conversion mol/m³ -> mmol/m³ pour l'affichage.
@@ -365,6 +365,8 @@ def main():
             ticks = [-Rt, -Rt / 2, 0.0, Rt / 2, Rt]
             ax.set_xticks(ticks)
             ax.set_yticks(ticks)
+
+            fig.savefig(f"diffusion_krogh_{int(t_np1)}s.png", dpi=300, bbox_inches="tight")
 
             fig.canvas.draw()
             fig.canvas.flush_events()
