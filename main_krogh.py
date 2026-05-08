@@ -105,7 +105,7 @@ def main():
     parser.add_argument("--order", type=int, default=1, help="Polynomial order")
     parser.add_argument("--theta", type=float, default=1.0, help="Theta-scheme")
     parser.add_argument("--dt", type=float, default=1.0, help="Time step [s]")
-    parser.add_argument("--nsteps", type=int, default=100, help="Number of time steps")
+    parser.add_argument("--nsteps", type=int, default=300, help="Number of time steps")
 
     args = parser.parse_args()
 
